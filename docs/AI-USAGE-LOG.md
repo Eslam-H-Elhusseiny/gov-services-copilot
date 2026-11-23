@@ -39,6 +39,13 @@ This document records significant uses of AI tools during the development of Gov
 - **Usage:** Assisted in generating the Laravel application structure, Docker configuration, environment templates, and initial development setup.
 - **Human Review:** Reviewed the generated files and verified Docker builds, application startup, and initial automated tests.
 
+### Entry 5 — Architecture & Design Review
+
+- **Area:** Technical Design Review
+- **Tool:** Kilo Code
+- **Usage:** Assisted in reviewing architecture and design documents, identifying inconsistencies, and evaluating technical decisions against the project requirements.
+- **Human Review:** Evaluated the findings, accepted or rejected recommendations, and retained responsibility for final design decisions.
+
 ## 3. Human Responsibility
 
 AI tools are used as development assistants, not as substitutes for engineering judgment.
