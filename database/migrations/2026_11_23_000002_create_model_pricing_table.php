@@ -1,0 +1,36 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('model_pricing', function (Blueprint $table): void {
+            $table->id();
+            $table->string('provider');
+            $table->string('model');
+            $table->decimal('input_price_per_1k', 10, 6);
+            $table->decimal('output_price_per_1k', 10, 6);
+            $table->string('currency')->default('USD');
+            $table->date('effective_from');
+            $table->date('effective_to')->nullable();
+            $table->timestamp('created_at');
+
+            $table->unique(['provider', 'model', 'effective_from']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('model_pricing');
+    }
+};
