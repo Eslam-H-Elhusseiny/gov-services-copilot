@@ -238,7 +238,7 @@ erDiagram
     }
 ```
 
-This is a logical starting point, not a finalized migration schema. Add fields and constraints only as implementation decisions are made.
+This is a logical starting point, not a finalized migration schema. The approved physical database schema is defined in `docs/DATABASE-DESIGN.md` and contains exactly 13 tables (`users`, `user_budgets`, `model_pricing`, `cases`, `case_messages`, `documents`, `document_versions`, `document_chunks`, `workflow_runs`, `workflow_steps`, `llm_calls`, `approvals`, `audit_logs`). Do not introduce physical tables not present in that schema.
 
 ## 8. Layer Dependency Rule
 
