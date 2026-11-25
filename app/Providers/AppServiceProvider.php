@@ -5,10 +5,12 @@ namespace App\Providers;
 use App\Application\Copilot\Contracts\CaseRepository;
 use App\Application\Copilot\Llm\LlmProviderManager;
 use App\Domain\Copilot\Embedding\EmbeddingProvider;
+use App\Domain\Copilot\Vector\VectorIndex;
 use App\Infrastructure\Copilot\EloquentCaseRepository;
 use App\Infrastructure\Copilot\Embedding\GeminiEmbeddingProvider;
 use App\Infrastructure\Copilot\Llm\GeminiProvider;
 use App\Infrastructure\Copilot\Llm\GroqProvider;
+use App\Infrastructure\Copilot\Vector\QdrantVectorIndex;
 use App\Models\ServiceCase;
 use App\Models\WorkflowRun;
 use App\Policies\CopilotPolicy;
@@ -42,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(EmbeddingProvider::class, fn ($app) => new GeminiEmbeddingProvider($app['config']['embeddings']));
 
+        $this->app->singleton(VectorIndex::class, fn ($app) => new QdrantVectorIndex($app['config']['vector']));
     }
 
     /**
