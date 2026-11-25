@@ -47,6 +47,18 @@ jobs:
       - name: Check code formatting (Pint)
         run: ./vendor/bin/pint --test
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
       - name: Run automated test suite
         run: php artisan test
         env:
