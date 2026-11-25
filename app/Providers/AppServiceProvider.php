@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Application\Copilot\Contracts\CaseRepository;
 use App\Application\Copilot\Llm\LlmProviderManager;
+use App\Domain\Copilot\Embedding\EmbeddingProvider;
 use App\Infrastructure\Copilot\EloquentCaseRepository;
+use App\Infrastructure\Copilot\Embedding\GeminiEmbeddingProvider;
 use App\Infrastructure\Copilot\Llm\GeminiProvider;
 use App\Infrastructure\Copilot\Llm\GroqProvider;
 use App\Models\ServiceCase;
@@ -37,6 +39,8 @@ class AppServiceProvider extends ServiceProvider
                 $app['config']['ai.fallback'],
             );
         });
+
+        $this->app->singleton(EmbeddingProvider::class, fn ($app) => new GeminiEmbeddingProvider($app['config']['embeddings']));
 
     }
 
