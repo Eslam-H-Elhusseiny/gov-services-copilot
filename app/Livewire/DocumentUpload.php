@@ -95,6 +95,7 @@ class DocumentUpload extends Component
         $this->file = null;
         $this->feedbackType = 'success';
         $this->feedback = 'Document uploaded and queued for processing.';
+        $this->dispatch('document-uploaded');
     }
 
     public function render()
