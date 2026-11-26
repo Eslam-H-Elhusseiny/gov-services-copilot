@@ -5,6 +5,7 @@ namespace App\Application\Copilot\Document;
 use App\Application\Copilot\Document\Contracts\DocumentRepository;
 use App\Domain\Copilot\Document\DocumentParser;
 use App\Domain\Copilot\Document\TextChunker;
+use App\Domain\Copilot\Document\TextCleaner;
 use App\Domain\Copilot\Embedding\EmbeddingException;
 use App\Domain\Copilot\Embedding\EmbeddingProvider;
 use App\Domain\Copilot\Vector\VectorException;
@@ -19,6 +20,7 @@ final class IngestDocument
         private DocumentRepository $repository,
         private DocumentParser $parser,
         private TextChunker $chunker,
+        private TextCleaner $cleaner,
         private EmbeddingProvider $embeddings,
         private VectorIndex $vectors,
         private int $chunkSize,
@@ -41,16 +43,16 @@ final class IngestDocument
         $this->repository->clearChunks($versionId);
 
         try {
-            $parsed = $this->parser->parse($version['file_path']);
+            $parsed = $this->cleaner->cleanParsed($this->parser->parse($version['file_path']));
             $chunks = $this->chunker->chunk($parsed, $this->chunkSize, $this->chunkOverlap);
         } catch (Throwable $e) {
-            $this->repository->updateStatus($versionId, 'failed', $this->sanitize($e->getMessage()));
+            $this->markFailed($versionId, $e->getMessage() ?? 'Document processing failed.');
 
             return;
         }
 
         if ($chunks === []) {
-            $this->repository->updateStatus($versionId, 'failed', 'No extractable text');
+            $this->markFailed($versionId, 'No extractable text');
 
             return;
         }
@@ -69,23 +71,35 @@ final class IngestDocument
                     ],
                 ));
             }
-        } catch (EmbeddingException|VectorException $e) {
-            $this->repository->updateStatus($versionId, 'failed', $this->sanitize($e->getMessage()));
+        } catch (Throwable $e) {
+            $this->markFailed($versionId, $e->getMessage() ?? 'Document processing failed.');
 
-            if ($e->retryable) {
-                throw $e;
+            if ($e instanceof EmbeddingException || $e instanceof VectorException) {
+                if (! $e->retryable) {
+                    return;
+                }
             }
 
-            return;
+            throw $e;
         }
 
         $this->repository->updateStatus($versionId, 'indexed', null, count($chunks), true);
     }
 
+    private function markFailed(int $versionId, string $message): void
+    {
+        try {
+            $this->repository->updateStatus($versionId, 'failed', $this->sanitize($message));
+        } catch (Throwable) {
+            // A secondary status-update failure must not mask the original exception.
+        }
+    }
+
     private function sanitize(string $message): string
     {
         $message = trim((string) preg_replace('/\s+/', ' ', $message));
+        $message = mb_scrub($message, 'UTF-8');
 
-        return substr($message, 0, 500);
+        return mb_substr($message, 0, 500, 'UTF-8');
     }
 }

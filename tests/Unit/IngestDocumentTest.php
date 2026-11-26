@@ -8,6 +8,7 @@ use App\Domain\Copilot\Document\DocumentParser;
 use App\Domain\Copilot\Document\ParsedDocument;
 use App\Domain\Copilot\Document\TextChunk;
 use App\Domain\Copilot\Document\TextChunker;
+use App\Domain\Copilot\Document\TextCleaner;
 use App\Domain\Copilot\Embedding\EmbeddingException;
 use App\Domain\Copilot\Embedding\EmbeddingProvider;
 use App\Domain\Copilot\Embedding\EmbeddingResult;
@@ -22,7 +23,7 @@ class IngestDocumentTest extends TestCase
 {
     private function useCase(FakeDocumentRepository $repo, FakeDocumentParser $parser, FakeEmbeddingProvider $embeddings, FakeVectorIndex $vectors, int $size = 50, int $overlap = 10): IngestDocument
     {
-        return new IngestDocument($repo, $parser, new TextChunker, $embeddings, $vectors, $size, $overlap);
+        return new IngestDocument($repo, $parser, new TextChunker, new TextCleaner, $embeddings, $vectors, $size, $overlap);
     }
 
     private function lastStatus(FakeDocumentRepository $repo): ?array
@@ -44,6 +45,23 @@ class IngestDocumentTest extends TestCase
         $this->assertSame('indexed', $status['status']);
         $this->assertSame(count($repo->savedChunks), $status['chunkCount']);
         $this->assertCount(count($repo->savedChunks), $vectors->points);
+    }
+
+    public function test_cleaned_content_reaches_chunk_persistence(): void
+    {
+        $repo = new FakeDocumentRepository(['id' => 1, 'document_id' => 7, 'file_path' => 'documents/x.pdf', 'status' => 'pending']);
+        $parser = new FakeDocumentParser;
+        $parser->document = new ParsedDocument("bad \x80\x94 text", []);
+        $embeddings = new FakeEmbeddingProvider;
+        $vectors = new FakeVectorIndex;
+
+        $this->useCase($repo, $parser, $embeddings, $vectors)->execute(1);
+
+        $this->assertNotEmpty($repo->savedChunks);
+        $content = $repo->savedChunks[0]->content;
+        $this->assertTrue(mb_check_encoding($content, 'UTF-8'));
+        $this->assertStringContainsString('€', $content);
+        $this->assertStringContainsString('”', $content);
     }
 
     public function test_already_indexed_returns_without_work(): void
@@ -179,6 +197,55 @@ class IngestDocumentTest extends TestCase
 
         $this->assertSame(['clear', 'parse'], $order->items);
     }
+
+    public function test_invalid_utf8_failure_message_is_sanitized(): void
+    {
+        $repo = new FakeDocumentRepository(['id' => 1, 'document_id' => 7, 'file_path' => 'x', 'status' => 'pending']);
+        $parser = new FakeDocumentParser;
+        $parser->throw = new RuntimeException("bad \x80\x94");
+
+        $this->useCase($repo, $parser, new FakeEmbeddingProvider, new FakeVectorIndex)->execute(1);
+
+        $last = $repo->statuses[array_key_last($repo->statuses)];
+        $this->assertSame('failed', $last['status']);
+        $this->assertTrue(mb_check_encoding((string) $last['failure'], 'UTF-8'));
+        $this->assertLessThanOrEqual(500, strlen((string) $last['failure']));
+    }
+
+    public function test_generic_save_exception_is_rethrown_and_marks_failed(): void
+    {
+        $repo = new FakeDocumentRepository(['id' => 1, 'document_id' => 7, 'file_path' => 'x', 'status' => 'pending']);
+        $repo->throwOnSave = true;
+        $parser = new FakeDocumentParser;
+        $parser->document = new ParsedDocument('', [1 => str_repeat('a', 120)]);
+
+        try {
+            $this->useCase($repo, $parser, new FakeEmbeddingProvider, new FakeVectorIndex)->execute(1);
+            $this->fail('Expected RuntimeException.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('save failed', $e->getMessage());
+        }
+
+        $last = $repo->statuses[array_key_last($repo->statuses)];
+        $this->assertSame('failed', $last['status']);
+    }
+
+    public function test_secondary_update_failure_does_not_mask_original(): void
+    {
+        $repo = new FakeDocumentRepository(['id' => 1, 'document_id' => 7, 'file_path' => 'x', 'status' => 'pending']);
+        $repo->throwOnUpdate = true;
+        $parser = new FakeDocumentParser;
+        $parser->document = new ParsedDocument('', [1 => str_repeat('a', 120)]);
+        $embeddings = new FakeEmbeddingProvider;
+        $embeddings->throw = new RuntimeException('original');
+
+        try {
+            $this->useCase($repo, $parser, $embeddings, new FakeVectorIndex)->execute(1);
+            $this->fail('Expected original RuntimeException.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('original', $e->getMessage());
+        }
+    }
 }
 
 final class OrderLog
@@ -200,6 +267,10 @@ final class FakeDocumentRepository implements DocumentRepository
 
     public array $savedChunks = [];
 
+    public bool $throwOnSave = false;
+
+    public bool $throwOnUpdate = false;
+
     public function __construct(?array $version = null, private ?OrderLog $order = null)
     {
         $this->version = $version;
@@ -219,6 +290,10 @@ final class FakeDocumentRepository implements DocumentRepository
 
     public function saveChunk(int $versionId, TextChunk $chunk): int
     {
+        if ($this->throwOnSave) {
+            throw new RuntimeException('save failed');
+        }
+
         $this->calls[] = 'save';
         $this->savedChunks[] = $chunk;
 
@@ -237,6 +312,10 @@ final class FakeDocumentRepository implements DocumentRepository
 
     public function updateStatus(int $versionId, string $status, ?string $failure = null, ?int $chunkCount = null, bool $indexed = false): void
     {
+        if ($this->throwOnUpdate && $status === 'failed') {
+            throw new RuntimeException('update failed');
+        }
+
         $this->calls[] = 'status';
         $this->statuses[] = ['status' => $status, 'failure' => $failure, 'chunkCount' => $chunkCount, 'indexed' => $indexed];
     }

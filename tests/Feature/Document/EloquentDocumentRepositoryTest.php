@@ -201,6 +201,20 @@ class EloquentDocumentRepositoryTest extends TestCase
         $this->assertSame(3, $version->chunk_count);
         $this->assertNotNull($version->indexed_at);
     }
+
+    public function test_update_status_sanitizes_invalid_utf8_failure(): void
+    {
+        $user = $this->user();
+        $repo = $this->repo();
+        $created = $repo->createDocumentVersion($user->id, 'law.pdf', 'hash-utf8', 'documents/law.pdf');
+
+        $repo->updateStatus($created['version_id'], 'failed', "bad \x80\x94");
+
+        $version = DocumentVersion::find($created['version_id']);
+        $this->assertSame('failed', $version->status);
+        $this->assertTrue(mb_check_encoding((string) $version->failure_details, 'UTF-8'));
+        $this->assertStringNotContainsString("\x80", (string) $version->failure_details);
+    }
 }
 
 final class RecordingVectorIndex implements VectorIndex

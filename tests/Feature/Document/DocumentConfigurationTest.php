@@ -16,6 +16,7 @@ use App\Infrastructure\Copilot\Document\RoutingDocumentParser;
 use App\Infrastructure\Copilot\EloquentCaseRepository;
 use App\Infrastructure\Copilot\Embedding\GeminiEmbeddingProvider;
 use App\Infrastructure\Copilot\Vector\QdrantVectorIndex;
+use Illuminate\Support\Env;
 use Tests\TestCase;
 
 class DocumentConfigurationTest extends TestCase
@@ -70,20 +71,32 @@ class DocumentConfigurationTest extends TestCase
 
     public function test_environment_overrides_are_applied(): void
     {
-        putenv('DOCUMENT_CHUNK_SIZE=555');
-        $_ENV['DOCUMENT_CHUNK_SIZE'] = '555';
-        putenv('DOCUMENT_ALLOWED_EXTENSIONS=PDF, Docx');
-        $_ENV['DOCUMENT_ALLOWED_EXTENSIONS'] = 'PDF, Docx';
+        $keys = ['DOCUMENT_CHUNK_SIZE', 'DOCUMENT_ALLOWED_EXTENSIONS'];
 
-        $config = require base_path('config/documents.php');
+        try {
+            putenv('DOCUMENT_CHUNK_SIZE=555');
+            $_ENV['DOCUMENT_CHUNK_SIZE'] = '555';
+            $_SERVER['DOCUMENT_CHUNK_SIZE'] = '555';
+            putenv('DOCUMENT_ALLOWED_EXTENSIONS=PDF, Docx');
+            $_ENV['DOCUMENT_ALLOWED_EXTENSIONS'] = 'PDF, Docx';
+            $_SERVER['DOCUMENT_ALLOWED_EXTENSIONS'] = 'PDF, Docx';
 
-        $this->assertSame(555, $config['chunk_size']);
-        $this->assertSame(['pdf', 'docx'], $config['allowed_extensions']);
+            // Force Laravel's Env repository to rebuild so it reads the overrides.
+            Env::enablePutenv();
 
-        putenv('DOCUMENT_CHUNK_SIZE');
-        unset($_ENV['DOCUMENT_CHUNK_SIZE']);
-        putenv('DOCUMENT_ALLOWED_EXTENSIONS');
-        unset($_ENV['DOCUMENT_ALLOWED_EXTENSIONS']);
+            $config = require base_path('config/documents.php');
+
+            $this->assertSame(555, $config['chunk_size']);
+            $this->assertSame(['pdf', 'docx'], $config['allowed_extensions']);
+        } finally {
+            foreach ($keys as $key) {
+                putenv($key);
+                unset($_ENV[$key], $_SERVER[$key]);
+            }
+
+            // Rebuild a clean repository so other tests are unaffected.
+            Env::enablePutenv();
+        }
     }
 
     public function test_existing_bindings_remain_functional(): void

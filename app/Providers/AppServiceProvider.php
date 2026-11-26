@@ -8,6 +8,7 @@ use App\Application\Copilot\Document\IngestDocument;
 use App\Application\Copilot\Llm\LlmProviderManager;
 use App\Domain\Copilot\Document\DocumentParser;
 use App\Domain\Copilot\Document\TextChunker;
+use App\Domain\Copilot\Document\TextCleaner;
 use App\Domain\Copilot\Embedding\EmbeddingProvider;
 use App\Domain\Copilot\Vector\VectorIndex;
 use App\Infrastructure\Copilot\Document\DocxDocumentParser;
@@ -70,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(DocumentRepository::class),
                 $app->make(DocumentParser::class),
                 $app->make(TextChunker::class),
+                $app->make(TextCleaner::class),
                 $app->make(EmbeddingProvider::class),
                 $app->make(VectorIndex::class),
                 (int) $app['config']['documents.chunk_size'],

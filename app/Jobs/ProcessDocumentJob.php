@@ -48,6 +48,12 @@ class ProcessDocumentJob implements ShouldQueue
     {
         $message = trim((string) preg_replace('/\s+/', ' ', $exception?->getMessage() ?? ''));
 
-        return substr($message === '' ? 'Document processing failed.' : $message, 0, 500);
+        if ($message === '') {
+            $message = 'Document processing failed.';
+        }
+
+        $message = mb_scrub($message, 'UTF-8');
+
+        return mb_substr($message, 0, 500, 'UTF-8');
     }
 }

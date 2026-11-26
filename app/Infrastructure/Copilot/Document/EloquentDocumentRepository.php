@@ -109,7 +109,7 @@ final class EloquentDocumentRepository implements DocumentRepository
         $attributes = ['status' => $status];
 
         if ($failure !== null) {
-            $attributes['failure_details'] = $failure;
+            $attributes['failure_details'] = $this->sanitizeFailure($failure);
         }
 
         if ($chunkCount !== null) {
@@ -129,5 +129,13 @@ final class EloquentDocumentRepository implements DocumentRepository
         $code = $e->errorInfo[1] ?? null;
 
         return $code === 1062 && str_contains($e->getMessage(), 'content_hash');
+    }
+
+    private function sanitizeFailure(string $failure): string
+    {
+        $failure = trim((string) preg_replace('/\s+/', ' ', $failure));
+        $failure = mb_scrub($failure, 'UTF-8');
+
+        return mb_substr($failure, 0, 500, 'UTF-8');
     }
 }

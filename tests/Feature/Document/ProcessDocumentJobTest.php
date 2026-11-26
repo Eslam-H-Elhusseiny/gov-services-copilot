@@ -8,6 +8,7 @@ use App\Domain\Copilot\Document\DocumentParser;
 use App\Domain\Copilot\Document\ParsedDocument;
 use App\Domain\Copilot\Document\TextChunk;
 use App\Domain\Copilot\Document\TextChunker;
+use App\Domain\Copilot\Document\TextCleaner;
 use App\Domain\Copilot\Embedding\EmbeddingException;
 use App\Domain\Copilot\Embedding\EmbeddingProvider;
 use App\Domain\Copilot\Embedding\EmbeddingResult;
@@ -43,7 +44,7 @@ class ProcessDocumentJobTest extends TestCase
         $repo = new RecordingDocumentRepository(['id' => 1, 'document_id' => 1, 'file_path' => 'x', 'status' => 'pending']);
 
         $job = new ProcessDocumentJob(7);
-        $job->handle(new IngestDocument($repo, new FixedParser(new ParsedDocument('', [])), new TextChunker, new ThrowingEmbeddingProvider, new NullVectorIndex, 50, 10));
+        $job->handle(new IngestDocument($repo, new FixedParser(new ParsedDocument('', [])), new TextChunker, new TextCleaner, new ThrowingEmbeddingProvider, new NullVectorIndex, 50, 10));
 
         $this->assertSame(7, $repo->findVersionArg);
     }
@@ -56,7 +57,7 @@ class ProcessDocumentJobTest extends TestCase
 
         $this->expectException(EmbeddingException::class);
 
-        (new ProcessDocumentJob(7))->handle(new IngestDocument($repo, $parser, new TextChunker, $embeddings, new NullVectorIndex, 50, 10));
+        (new ProcessDocumentJob(7))->handle(new IngestDocument($repo, $parser, new TextChunker, new TextCleaner, $embeddings, new NullVectorIndex, 50, 10));
     }
 
     public function test_failed_marks_version_failed_in_database(): void
@@ -118,6 +119,58 @@ class ProcessDocumentJobTest extends TestCase
         } catch (Throwable) {
             $this->fail('failed() must not rethrow a secondary status-update failure.');
         }
+    }
+
+    public function test_generic_exception_marks_failed_not_processing(): void
+    {
+        $repo = new RecordingDocumentRepository(['id' => 1, 'document_id' => 1, 'file_path' => 'x', 'status' => 'pending']);
+        $parser = new FixedParser(new ParsedDocument('', [1 => str_repeat('a', 120)]));
+        $embeddings = new ThrowingEmbeddingProvider(new RuntimeException('generic failure'));
+
+        $ingest = new IngestDocument($repo, $parser, new TextChunker, new TextCleaner, $embeddings, new NullVectorIndex, 50, 10);
+
+        try {
+            $ingest->execute(1);
+        } catch (RuntimeException) {
+        }
+
+        $last = $repo->updates[array_key_last($repo->updates)];
+        $this->assertSame('failed', $last['status']);
+    }
+
+    public function test_all_attempts_failing_then_failed_sets_status(): void
+    {
+        $this->app->instance(DocumentRepository::class, new EloquentDocumentRepository(new NullVectorIndex));
+
+        $user = User::factory()->create(['role' => 'officer']);
+        $document = Document::create(['filename' => 'law.pdf']);
+        $version = DocumentVersion::forceCreate([
+            'document_id' => $document->id,
+            'version_label' => 'v1',
+            'content_hash' => 'hash-retry',
+            'file_path' => 'documents/law.pdf',
+            'uploaded_by' => $user->id,
+            'status' => 'pending',
+            'created_at' => now(),
+        ]);
+
+        $parser = new FixedParser(new ParsedDocument('', [1 => str_repeat('a', 120)]));
+        $embeddings = new ThrowingEmbeddingProvider(new EmbeddingException('fake', 'retry', null, true));
+        $ingest = new IngestDocument(new EloquentDocumentRepository(new NullVectorIndex), $parser, new TextChunker, new TextCleaner, $embeddings, new NullVectorIndex, 50, 10);
+
+        $job = new ProcessDocumentJob($version->id);
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            try {
+                $job->handle($ingest);
+            } catch (EmbeddingException) {
+            }
+        }
+
+        $job->failed(new EmbeddingException('fake', 'retry', null, true));
+
+        $this->assertSame('failed', $version->fresh()->status);
+        $this->assertDatabaseHas('document_versions', ['id' => $version->id, 'status' => 'failed']);
     }
 }
 
