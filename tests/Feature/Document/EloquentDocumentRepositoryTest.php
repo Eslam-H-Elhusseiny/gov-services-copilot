@@ -7,6 +7,7 @@ use App\Domain\Copilot\Vector\VectorException;
 use App\Domain\Copilot\Vector\VectorIndex;
 use App\Domain\Copilot\Vector\VectorPoint;
 use App\Infrastructure\Copilot\Document\EloquentDocumentRepository;
+use App\Models\Document;
 use App\Models\DocumentChunk;
 use App\Models\DocumentVersion;
 use App\Models\User;
@@ -214,6 +215,60 @@ class EloquentDocumentRepositoryTest extends TestCase
         $this->assertSame('failed', $version->status);
         $this->assertTrue(mb_check_encoding((string) $version->failure_details, 'UTF-8'));
         $this->assertStringNotContainsString("\x80", (string) $version->failure_details);
+    }
+
+    public function test_find_chunks_by_ids_returns_only_indexed_with_fields(): void
+    {
+        $user = $this->user();
+        $repo = $this->repo();
+        $document = Document::create(['filename' => 'law.pdf']);
+
+        $indexed = DocumentVersion::forceCreate([
+            'document_id' => $document->id,
+            'version_label' => 'v1',
+            'content_hash' => 'hash-indexed',
+            'file_path' => 'documents/law.pdf',
+            'uploaded_by' => $user->id,
+            'status' => 'indexed',
+            'created_at' => now(),
+        ]);
+        $pending = DocumentVersion::forceCreate([
+            'document_id' => $document->id,
+            'version_label' => 'v2',
+            'content_hash' => 'hash-pending',
+            'file_path' => 'documents/law.pdf',
+            'uploaded_by' => $user->id,
+            'status' => 'pending',
+            'created_at' => now(),
+        ]);
+
+        $indexedChunk = DocumentChunk::create([
+            'document_version_id' => $indexed->id,
+            'chunk_index' => 0,
+            'content' => 'indexed body',
+            'page_number' => 3,
+            'section' => 'Chapter 1',
+            'clause' => 'Article 1',
+            'created_at' => now(),
+        ]);
+        $pendingChunk = DocumentChunk::create([
+            'document_version_id' => $pending->id,
+            'chunk_index' => 0,
+            'content' => 'pending body',
+            'created_at' => now(),
+        ]);
+
+        $rows = $repo->findChunksByIds([$indexedChunk->id, $pendingChunk->id]);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame($indexedChunk->id, $rows[0]['id']);
+        $this->assertSame('indexed body', $rows[0]['content']);
+        $this->assertSame($document->id, $rows[0]['document_id']);
+        $this->assertSame($indexed->id, $rows[0]['document_version_id']);
+        $this->assertSame('law.pdf', $rows[0]['filename']);
+        $this->assertSame(3, $rows[0]['page_number']);
+
+        $this->assertSame([], $repo->findChunksByIds([]));
     }
 }
 

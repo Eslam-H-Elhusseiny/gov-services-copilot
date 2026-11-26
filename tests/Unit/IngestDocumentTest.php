@@ -255,6 +255,11 @@ final class OrderLog
 
 final class FakeDocumentRepository implements DocumentRepository
 {
+    public function findChunksByIds(array $ids): array
+    {
+        return [];
+    }
+
     public ?array $version;
 
     public array $statuses = [];
