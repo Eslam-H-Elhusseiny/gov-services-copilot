@@ -1,27 +1,45 @@
+x-app: &app
+    build:
+        context: .
+        dockerfile: docker/php/Dockerfile
+    image: gov-services-copilot-app
+    volumes:
+        - .:/var/www/html
+        - app_storage:/var/www/html/storage
+        - app_bootstrap_cache:/var/www/html/bootstrap/cache
+    environment:
+        - APP_ENV=${APP_ENV:-local}
+        - DB_CONNECTION=mysql
+        - DB_HOST=mysql
+        - DB_PORT=3306
+        - DB_DATABASE=${DB_DATABASE:-gov_services_copilot}
+        - DB_USERNAME=${DB_USERNAME:-app}
+        - DB_PASSWORD=${DB_PASSWORD:-change-me}
+    networks:
+        - gsc
+
 services:
     app:
-        build:
-            context: .
-            dockerfile: docker/php/Dockerfile
-        volumes:
-            - .:/var/www/html
-            - app_storage:/var/www/html/storage
-            - app_bootstrap_cache:/var/www/html/bootstrap/cache
-        environment:
-            - APP_ENV=${APP_ENV:-local}
-            - DB_CONNECTION=mysql
-            - DB_HOST=mysql
-            - DB_PORT=3306
-            - DB_DATABASE=${DB_DATABASE:-gov_services_copilot}
-            - DB_USERNAME=${DB_USERNAME:-app}
-            - DB_PASSWORD=${DB_PASSWORD:-change-me}
+        <<: *app
         depends_on:
             mysql:
                 condition: service_healthy
             qdrant:
                 condition: service_healthy
-        networks:
-            - gsc
+
+    worker:
+        <<: *app
+        entrypoint: []
+        command: ["php", "artisan", "queue:work", "database", "--sleep=3", "--tries=3", "--backoff=10"]
+        depends_on:
+            app:
+                condition: service_started
+            mysql:
+                condition: service_healthy
+            qdrant:
+                condition: service_healthy
+        restart: unless-stopped
+        stop_grace_period: 30s
 
     web:
         image: nginx:1.28.0-alpine
