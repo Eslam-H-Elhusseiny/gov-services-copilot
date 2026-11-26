@@ -44,10 +44,16 @@ class CopilotChat extends Component
 
     public bool $isCitationModalOpen = false;
 
-    private const VIEWS = ['consultation', 'approvals', 'corpus', 'usage'];
+    private const VIEWS = ['consultation', 'approvals', 'corpus', 'usage', 'document-upload', 'home'];
 
     public function mount(): void
     {
+        if (Auth::user()?->isAdmin()) {
+            $this->activeView = 'home';
+
+            return;
+        }
+
         $firstCase = $this->baseCasesQuery()->first();
 
         if ($firstCase) {
@@ -58,6 +64,12 @@ class CopilotChat extends Component
     public function updatedActiveView(string $value): void
     {
         if (! in_array($value, self::VIEWS, true)) {
+            $this->activeView = 'consultation';
+
+            return;
+        }
+
+        if (($value === 'document-upload' || $value === 'home') && ! (Auth::user()?->isAdmin() ?? false)) {
             $this->activeView = 'consultation';
         }
     }

@@ -2,13 +2,14 @@
                 <div class="flex-1 overflow-y-auto px-3 py-6 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-4 sm:space-y-6">
                     <div>
                         <h2 class="text-lg sm:text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-                            Regulatory Knowledge Base (Qdrant Vector Index)
+                            Regulatory Knowledge Base @if (! Auth::user()->isAdmin())(Qdrant Vector Index)@endif
                         </h2>
                         <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                             Official gazetted laws, ministerial decrees, and procedural handbooks indexed with dense semantic embeddings.
                         </p>
                     </div>
 
+                    @if (! Auth::user()->isAdmin())
                     <!-- Vector DB Status Card -->
                     <div class="p-4 sm:p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-800/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                         <div class="flex items-center gap-3">
@@ -20,6 +21,7 @@
                         </div>
                         <x-badge variant="success" size="sm" dot>Connected & Healthy</x-badge>
                     </div>
+                    @endif
 
                     <!-- Ingested Laws Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
