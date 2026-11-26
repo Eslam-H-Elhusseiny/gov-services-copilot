@@ -20,7 +20,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: curl, mbstring, xml, dom, zip, pdo, sqlite, pdo_sqlite, intl, bcmath, pcntl, fileinfo, filter, tokenizer
+          extensions: curl, mbstring, xml, dom, zip, pdo, sqlite, pdo_sqlite, intl, bcmath, pcntl, fileinfo, filter, tokenizer, gd
           coverage: none
           tools: composer:v2
 
