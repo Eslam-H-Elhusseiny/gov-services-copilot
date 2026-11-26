@@ -6,13 +6,17 @@ use App\Application\Copilot\ApproveResponse;
 use App\Application\Copilot\DeleteCase;
 use App\Application\Copilot\RejectResponse;
 use App\Application\Copilot\SubmitConsultation;
+use App\Jobs\ProcessDocumentJob;
 use App\Models\AuditLog;
+use App\Models\Document;
+use App\Models\DocumentVersion;
 use App\Models\ServiceCase;
 use App\Models\UserBudget;
 use App\Models\WorkflowRun;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use RuntimeException;
 
@@ -44,10 +48,16 @@ class CopilotChat extends Component
 
     public bool $isCitationModalOpen = false;
 
-    private const VIEWS = ['consultation', 'approvals', 'corpus', 'usage'];
+    private const VIEWS = ['consultation', 'approvals', 'corpus', 'usage', 'document-upload', 'home'];
 
     public function mount(): void
     {
+        if (Auth::user()?->isAdmin()) {
+            $this->activeView = 'home';
+
+            return;
+        }
+
         $firstCase = $this->baseCasesQuery()->first();
 
         if ($firstCase) {
@@ -58,6 +68,12 @@ class CopilotChat extends Component
     public function updatedActiveView(string $value): void
     {
         if (! in_array($value, self::VIEWS, true)) {
+            $this->activeView = 'consultation';
+
+            return;
+        }
+
+        if (($value === 'document-upload' || $value === 'home') && ! (Auth::user()?->isAdmin() ?? false)) {
             $this->activeView = 'consultation';
         }
     }
@@ -350,6 +366,59 @@ class CopilotChat extends Component
         }
 
         $this->dispatch('toast', type: 'neutral', message: 'Consultation deleted.');
+    }
+
+    public function getDocumentsProperty()
+    {
+        return Document::with(['versions' => fn ($query) => $query->orderByDesc('created_at')])
+            ->orderByDesc('updated_at')
+            ->get();
+    }
+
+    #[On('document-uploaded')]
+    public function showCorpus(): void
+    {
+        $this->activeView = 'corpus';
+    }
+
+    public function getFailedDocumentsProperty()
+    {
+        return DocumentVersion::with('document')
+            ->where('status', 'failed')
+            ->latest()
+            ->get();
+    }
+
+    public function retryDocument(int $versionId): void
+    {
+        try {
+            Gate::authorize('create', Document::class);
+        } catch (AuthorizationException) {
+            $this->dispatch('toast', type: 'error', message: 'You are not authorized to retry documents.');
+
+            return;
+        }
+
+        $claimed = DocumentVersion::where('id', $versionId)
+            ->where('status', 'failed')
+            ->update(['status' => 'pending']);
+
+        if ($claimed === 0) {
+            $this->dispatch('toast', type: 'warning', message: 'Only failed documents can be retried.');
+
+            return;
+        }
+
+        try {
+            ProcessDocumentJob::dispatch($versionId);
+        } catch (\Throwable $e) {
+            DocumentVersion::where('id', $versionId)->update(['status' => 'failed']);
+            $this->dispatch('toast', type: 'error', message: 'Could not queue the document for retry.');
+
+            return;
+        }
+
+        $this->dispatch('toast', type: 'success', message: 'Document queued for reprocessing.');
     }
 
     public function render()

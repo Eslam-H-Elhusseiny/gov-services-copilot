@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype-dev \
     zlib1g-dev \
     libicu-dev \
     libpng-dev \
@@ -26,7 +29,8 @@ RUN docker-php-ext-configure intl \
     intl \
     bcmath \
     pcntl \
-    opcache
+    opcache \
+    gd
 
 # Copy pinned Composer binary directly from official image
 COPY --from=composer:2.8.6 /usr/bin/composer /usr/bin/composer

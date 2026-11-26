@@ -125,6 +125,19 @@ button {
     font-family: inherit;
     font-size: inherit;
 }
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary,
+select,
+label[for],
+[wire\:click]:not([aria-disabled="true"]) {
+    cursor: pointer;
+}
+button:disabled,
+[aria-disabled="true"] {
+    cursor: not-allowed;
+}
 
 /* Custom scrollbar - from app.blade.php */
 ::-webkit-scrollbar {

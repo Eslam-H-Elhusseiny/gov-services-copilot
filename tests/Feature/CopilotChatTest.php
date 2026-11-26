@@ -198,7 +198,7 @@ class CopilotChatTest extends TestCase
         $this->assertDatabaseHas('cases', ['id' => $otherCase->id]);
     }
 
-    public function test_admin_can_view_all_cases(): void
+    public function test_admin_lands_on_home_and_sees_all_cases(): void
     {
         $officerA = $this->officer();
         $officerB = $this->officer();
@@ -208,9 +208,21 @@ class CopilotChatTest extends TestCase
 
         Livewire::actingAs($this->admin())
             ->test('copilot-chat')
-            ->assertSet('activeCaseId', ServiceCase::first()->id);
+            ->assertSet('activeView', 'home')
+            ->assertSee('Administrator workspace')
+            ->assertDontSee('New Consultation')
+            ->assertDontSee('Approvals Queue');
 
         $this->assertSame(2, ServiceCase::count());
+    }
+
+    public function test_officer_sees_consultation_controls(): void
+    {
+        Livewire::actingAs($this->officer())
+            ->test('copilot-chat')
+            ->assertSee('New Consultation')
+            ->assertSee('Consultations')
+            ->assertSee('Approvals Queue');
     }
 
     public function test_admin_cannot_create_approve_reject_or_delete(): void

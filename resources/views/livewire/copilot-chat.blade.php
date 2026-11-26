@@ -61,6 +61,7 @@
                 </button>
             </div>
 
+            @if (! Auth::user()->isAdmin())
             <!-- New Consultation Action Button -->
             <div class="p-3">
                 <button
@@ -76,9 +77,11 @@
 
                 </button>
             </div>
+            @endif
 
             <!-- Navigation Sections -->
             <div class="px-3 py-1 space-y-1">
+                @if (! Auth::user()->isAdmin())
                 <button
                     type="button"
                     wire:click="$set('activeView', 'consultation')"
@@ -113,6 +116,7 @@
                             {{ $this->pendingApprovalsCount }}
                         </span>
                     @endif
+                @endif
                 </button>
 
                 <button
@@ -128,7 +132,9 @@
                         </svg>
                         Regulatory Corpus
                     </span>
+                    @if (! Auth::user()->isAdmin())
                     <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500">Qdrant</span>
+                    @endif
                 </button>
 
                 <button
@@ -146,8 +152,26 @@
                     </span>
                     <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">T3 Governor</span>
                 </button>
+
+                @if (Auth::user()->isAdmin())
+                    <button
+                        type="button"
+                        wire:click="$set('activeView', 'document-upload')"
+                        @click="if (isMobile) sidebarOpen = false"
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+                        :class="'{{ $activeView }}' === 'document-upload' ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60'"
+                    >
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                            </svg>
+                            Document Upload
+                        </span>
+                    </button>
+                @endif
             </div>
 
+            @if (! Auth::user()->isAdmin())
             <!-- Search Consultations -->
             <div class="px-3 pt-3">
                 <div class="relative">
@@ -209,8 +233,11 @@
                 @endforelse
             </div>
 
+            @endif
+
             <!-- Bottom User Profile Card & Theme Toggle -->
-            <div class="p-3 border-t space-y-2.5" style="border-color: var(--border-primary);">
+            <div class="absolute bottom-0 left-0 w-full p-3 border-t space-y-2.5" style="border-color: var(--border-primary);">
+                @if (! Auth::user()->isAdmin())
                 <!-- Token Budget Mini Widget -->
                 <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#141414] border border-gray-200/80 dark:border-gray-800/80">
                     <div class="flex items-center justify-between text-[11px] mb-1 font-medium">
@@ -221,6 +248,7 @@
                         <div class="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full" style="width: {{ 100 - ($this->userBudget?->percentage_used ?? 3.4) }}%"></div>
                     </div>
                 </div>
+                @endif
 
                 <!-- User Bar -->
                 <div class="flex items-center justify-between">
@@ -294,12 +322,16 @@
                     <span class="font-medium text-gray-400 hidden xs:inline">Copilot</span>
                     <span class="text-gray-300 dark:text-gray-700 hidden xs:inline">/</span>
                     <span class="font-semibold text-gray-900 dark:text-gray-100 truncate max-w-[140px] xs:max-w-[200px] sm:max-w-xs md:max-w-md">
-                        @if ($activeView === 'corpus')
+                        @if ($activeView === 'home')
+                            Overview
+                        @elseif ($activeView === 'corpus')
                             Regulatory Corpus
                         @elseif ($activeView === 'approvals')
                             Approvals Queue
                         @elseif ($activeView === 'usage')
                             Spend & Governance
+                        @elseif ($activeView === 'document-upload')
+                            Document Upload
                         @else
                             {{ $this->activeCase ? $this->activeCase->title : 'New Consultation' }}
                         @endif
@@ -310,6 +342,7 @@
             <!-- Right Telemetry & Status Badges -->
             <div class="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
                 <!-- Model Tier Selector Pill -->
+                @if (! Auth::user()->isAdmin())
                 <div class="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-[#1e1f20] text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-800">
                     <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                     <span class="hidden sm:inline">Gemini 2.5 Flash</span>
@@ -320,6 +353,7 @@
                 <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
                     <span>{{ number_format($this->userBudget?->available_tokens ?? 241580) }} tokens</span>
                 </div>
+                @endif
 
                 <!-- Quick Theme Toggle for Canvas -->
                 <button
@@ -340,12 +374,18 @@
 
         <!-- Dynamic Content Body -->
         <main class="flex-1 overflow-hidden relative flex flex-col min-w-0">
-            @php($allowedViews = ['consultation', 'approvals', 'corpus', 'usage'])
+            @php($allowedViews = ['consultation', 'approvals', 'corpus', 'usage', 'document-upload', 'home'])
+            @php($resolvedView = in_array($activeView, $allowedViews, true) ? $activeView : 'consultation')
 
-            @include(
-                'livewire.copilot.' .
-                (in_array($activeView, $allowedViews, true) ? $activeView : 'consultation')
-            )
+            @if ($resolvedView === 'home' && Auth::user()->isAdmin())
+                @include('livewire.copilot.home')
+            @elseif ($resolvedView === 'document-upload' && Auth::user()->isAdmin())
+                <livewire:document-upload />
+            @elseif ($resolvedView === 'document-upload' || $resolvedView === 'home')
+                @include('livewire.copilot.consultation')
+            @else
+                @include('livewire.copilot.' . $resolvedView)
+            @endif
         </main>
     </div>
 
