@@ -44,8 +44,9 @@ class EmbeddingProviderTest extends TestCase
             $this->assertStringNotContainsString('key=', $request->url());
             $this->assertSame('secret-key', $request->headers()['x-goog-api-key'][0] ?? null);
             $this->assertSame('Example document text', $body['content']['parts'][0]['text']);
-            $this->assertSame('RETRIEVAL_DOCUMENT', $body['embedContentConfig']['taskType']);
-            $this->assertSame(768, $body['embedContentConfig']['outputDimensionality']);
+            $this->assertSame('RETRIEVAL_DOCUMENT', $body['taskType']);
+            $this->assertSame(768, $body['outputDimensionality']);
+            $this->assertArrayNotHasKey('embedContentConfig', $body);
 
             return true;
         });
@@ -71,6 +72,18 @@ class EmbeddingProviderTest extends TestCase
         try {
             $this->provider()->embed('text');
             $this->fail('Expected dimension mismatch.');
+        } catch (EmbeddingException $e) {
+            $this->assertFalse($e->retryable);
+        }
+    }
+
+    public function test_3072_dimensional_response_is_rejected(): void
+    {
+        $this->fakeEmbedding(3072);
+
+        try {
+            $this->provider()->embed('text');
+            $this->fail('Expected 3072-dimension response to be rejected.');
         } catch (EmbeddingException $e) {
             $this->assertFalse($e->retryable);
         }

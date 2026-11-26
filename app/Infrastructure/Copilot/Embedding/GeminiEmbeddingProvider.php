@@ -40,10 +40,8 @@ final class GeminiEmbeddingProvider implements EmbeddingProvider
                     ['text' => $text],
                 ],
             ],
-            'embedContentConfig' => [
-                'taskType' => $this->config['task_type'] ?? 'RETRIEVAL_DOCUMENT',
-                'outputDimensionality' => $this->dimensions(),
-            ],
+            'taskType' => $this->config['task_type'] ?? 'RETRIEVAL_DOCUMENT',
+            'outputDimensionality' => $this->dimensions(),
         ];
 
         $url = $this->config['base_uri'].'/models/'.$this->config['model'].':embedContent';
