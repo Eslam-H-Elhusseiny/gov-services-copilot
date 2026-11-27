@@ -10,6 +10,7 @@ use App\Domain\Copilot\Document\DocumentParser;
 use App\Domain\Copilot\Document\TextChunker;
 use App\Domain\Copilot\Document\TextCleaner;
 use App\Domain\Copilot\Embedding\EmbeddingProvider;
+use App\Domain\Copilot\Retrieval\KeywordSearch;
 use App\Domain\Copilot\Vector\VectorIndex;
 use App\Infrastructure\Copilot\Document\DocxDocumentParser;
 use App\Infrastructure\Copilot\Document\EloquentDocumentRepository;
@@ -19,6 +20,7 @@ use App\Infrastructure\Copilot\EloquentCaseRepository;
 use App\Infrastructure\Copilot\Embedding\GeminiEmbeddingProvider;
 use App\Infrastructure\Copilot\Llm\GeminiProvider;
 use App\Infrastructure\Copilot\Llm\GroqProvider;
+use App\Infrastructure\Copilot\Retrieval\MysqlKeywordSearch;
 use App\Infrastructure\Copilot\Vector\QdrantVectorIndex;
 use App\Models\Document;
 use App\Models\ServiceCase;
@@ -56,6 +58,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EmbeddingProvider::class, fn ($app) => new GeminiEmbeddingProvider($app['config']['embeddings']));
 
         $this->app->singleton(VectorIndex::class, fn ($app) => new QdrantVectorIndex($app['config']['vector']));
+
+        $this->app->bind(KeywordSearch::class, MysqlKeywordSearch::class);
 
         $this->app->singleton(DocumentRepository::class, EloquentDocumentRepository::class);
 
