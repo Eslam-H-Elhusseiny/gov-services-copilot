@@ -226,6 +226,11 @@ class DocumentUploadTest extends TestCase
 
 final class FailingUploadRepository implements DocumentRepository
 {
+    public function findChunksByIds(array $ids): array
+    {
+        return [];
+    }
+
     public function createDocumentVersion(int $userId, string $filename, string $contentHash, string $relativePath): array
     {
         throw new \RuntimeException('database failure');

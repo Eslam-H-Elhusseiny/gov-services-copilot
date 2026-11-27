@@ -93,6 +93,37 @@ final class EloquentDocumentRepository implements DocumentRepository
         DocumentChunk::whereIn('id', $ids)->delete();
     }
 
+    public function findChunksByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $chunks = DocumentChunk::with('documentVersion.document')
+            ->whereIn('id', $ids)
+            ->whereHas('documentVersion', fn ($query) => $query->where('status', 'indexed'))
+            ->get();
+
+        $result = [];
+
+        foreach ($chunks as $chunk) {
+            $version = $chunk->documentVersion;
+
+            $result[] = [
+                'id' => (int) $chunk->id,
+                'content' => (string) $chunk->content,
+                'document_id' => (int) $version->document_id,
+                'document_version_id' => (int) $chunk->document_version_id,
+                'filename' => (string) $version->document->filename,
+                'page_number' => $chunk->page_number,
+                'section' => $chunk->section,
+                'clause' => $chunk->clause,
+            ];
+        }
+
+        return $result;
+    }
+
     public function updateStatus(
         int $versionId,
         string $status,

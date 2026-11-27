@@ -23,7 +23,7 @@
     @livewireStyles
     @stack('head')
 </head>
-<body class="h-full overflow-hidden antialiased font-sans select-none" style="background-color: var(--bg-primary); color: var(--text-primary);">
+<body class="h-full overflow-hidden antialiased font-sans" style="background-color: var(--bg-primary); color: var(--text-primary);">
     <!-- Toast Notification Host -->
     <div
         x-data="{

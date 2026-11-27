@@ -27,6 +27,12 @@ interface DocumentRepository
 
     public function clearChunks(int $versionId): void;
 
+    /**
+     * @param  array<int, int>  $ids
+     * @return array<int, array<string, mixed>>
+     */
+    public function findChunksByIds(array $ids): array;
+
     public function updateStatus(
         int $versionId,
         string $status,

@@ -229,6 +229,11 @@ final class ThrowingEmbeddingProvider implements EmbeddingProvider
 
 final class RecordingDocumentRepository implements DocumentRepository
 {
+    public function findChunksByIds(array $ids): array
+    {
+        return [];
+    }
+
     public ?int $findVersionArg = null;
 
     public array $updates = [];
@@ -264,6 +269,11 @@ final class RecordingDocumentRepository implements DocumentRepository
 
 final class ThrowingDocumentRepository implements DocumentRepository
 {
+    public function findChunksByIds(array $ids): array
+    {
+        return [];
+    }
+
     public function createDocumentVersion(int $userId, string $filename, string $contentHash, string $relativePath): array
     {
         return ['document_id' => 1, 'version_id' => 1];
