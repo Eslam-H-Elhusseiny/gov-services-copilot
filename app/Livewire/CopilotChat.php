@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Application\Copilot\ApproveResponse;
 use App\Application\Copilot\DeleteCase;
 use App\Application\Copilot\RejectResponse;
+use App\Application\Copilot\Retrieval\RetrieveKnowledge;
 use App\Application\Copilot\SubmitConsultation;
 use App\Jobs\ProcessDocumentJob;
 use App\Models\AuditLog;
@@ -31,6 +32,16 @@ class CopilotChat extends Component
     public string $selectedModel = 'reasoning';
 
     public string $activeView = 'consultation';
+
+    public array $retrievalResults = [];
+
+    public bool $retrievalSearched = false;
+
+    public bool $sufficientEvidence = false;
+
+    public string $knowledgeQuery = '';
+
+    public ?int $retrievalCaseId = null;
 
     public bool $isEditModalOpen = false;
 
@@ -62,6 +73,7 @@ class CopilotChat extends Component
 
         if ($firstCase) {
             $this->activeCaseId = $firstCase->id;
+            $this->runRetrieval($firstCase);
         }
     }
 
@@ -150,11 +162,14 @@ class CopilotChat extends Component
         $this->activeCaseId = null;
         $this->situationInput = '';
         $this->activeView = 'consultation';
+        $this->resetRetrieval();
     }
 
     public function selectCase(int $id): void
     {
-        if (! $this->baseCasesQuery()->find($id)) {
+        $case = $this->baseCasesQuery()->find($id);
+
+        if (! $case) {
             $this->dispatch('toast', type: 'error', message: 'Consultation not found.');
 
             return;
@@ -162,6 +177,8 @@ class CopilotChat extends Component
 
         $this->activeCaseId = $id;
         $this->activeView = 'consultation';
+        $this->resetRetrieval();
+        $this->runRetrieval($case);
     }
 
     public function applyPrompt(string $prompt): void
@@ -419,6 +436,101 @@ class CopilotChat extends Component
         }
 
         $this->dispatch('toast', type: 'success', message: 'Document queued for reprocessing.');
+    }
+
+    public function searchKnowledge(RetrieveKnowledge $retrieve): void
+    {
+        Gate::authorize('viewAny', ServiceCase::class);
+
+        $data = $this->validate([
+            'knowledgeQuery' => 'required|string|min:3',
+        ]);
+
+        try {
+            $outcome = $retrieve->handle(Auth::id(), $data['knowledgeQuery'], 5);
+        } catch (\Throwable $e) {
+            $this->dispatch('toast', type: 'error', message: 'Search failed. Please try again.');
+
+            return;
+        }
+
+        $this->retrievalResults = array_map(static fn ($chunk) => [
+            'id' => $chunk->id,
+            'content' => $chunk->content,
+            'document_id' => $chunk->documentId,
+            'document_version_id' => $chunk->documentVersionId,
+            'filename' => $chunk->filename,
+            'page_number' => $chunk->pageNumber,
+            'section' => $chunk->section,
+            'clause' => $chunk->clause,
+            'rrf_score' => $chunk->rrfScore,
+            'rank' => $chunk->rank,
+            'sources' => $chunk->sources,
+        ], $outcome->chunks);
+
+        $this->sufficientEvidence = $outcome->sufficientEvidence;
+        $this->retrievalSearched = true;
+    }
+
+    private function resetRetrieval(): void
+    {
+        $this->retrievalResults = [];
+        $this->retrievalSearched = false;
+        $this->sufficientEvidence = false;
+        $this->retrievalCaseId = null;
+    }
+
+    private function runRetrieval(ServiceCase $case): void
+    {
+        if ($this->retrievalCaseId === $case->id) {
+            return;
+        }
+
+        $this->retrievalCaseId = $case->id;
+
+        try {
+            Gate::authorize('viewAny', ServiceCase::class);
+        } catch (AuthorizationException) {
+            return;
+        }
+
+        $question = (string) ($case->messages->firstWhere('sender_type', 'officer')?->content ?? $case->situation);
+
+        if (trim($question) === '') {
+            $this->retrievalResults = [];
+            $this->sufficientEvidence = false;
+            $this->retrievalSearched = true;
+
+            return;
+        }
+
+        try {
+            $outcome = app(RetrieveKnowledge::class)->handle(Auth::id(), $question, 5);
+        } catch (\Throwable $e) {
+            $this->dispatch('toast', type: 'error', message: 'Search failed. Please try again.');
+            $this->retrievalResults = [];
+            $this->sufficientEvidence = false;
+            $this->retrievalSearched = true;
+
+            return;
+        }
+
+        $this->retrievalResults = array_map(static fn ($chunk) => [
+            'id' => $chunk->id,
+            'content' => $chunk->content,
+            'document_id' => $chunk->documentId,
+            'document_version_id' => $chunk->documentVersionId,
+            'filename' => $chunk->filename,
+            'page_number' => $chunk->pageNumber,
+            'section' => $chunk->section,
+            'clause' => $chunk->clause,
+            'rrf_score' => $chunk->rrfScore,
+            'rank' => $chunk->rank,
+            'sources' => $chunk->sources,
+        ], $outcome->chunks);
+
+        $this->sufficientEvidence = $outcome->sufficientEvidence;
+        $this->retrievalSearched = true;
     }
 
     public function render()

@@ -324,6 +324,44 @@
                             </div> --}}
                         </div>
                     @endif
+                <!-- Retrieval References -->
+                <div class="p-4 sm:px-6">
+                    <div class="max-w-3xl mx-auto space-y-3">
+                        <div wire:loading wire:target="searchKnowledge" class="text-xs" style="color: var(--text-secondary);">Searching the regulatory corpus...</div>
+
+                        @if ($retrievalSearched && $this->activeCase)
+                            @forelse ($retrievalResults as $chunk)
+                                <div class="p-3 rounded-2xl border" style="background-color: var(--bg-secondary); border-color: var(--border-primary);">
+                                    <div class="flex items-center justify-between text-xs font-medium" style="color: var(--text-primary);">
+                                        <span class="truncate mr-2">{{ $chunk['filename'] }}</span>
+                                        <span class="text-[10px] font-mono text-gray-400">#{{ $chunk['rank'] }}</span>
+                                    </div>
+                                    <p class="text-[11px] mt-1" style="color: var(--text-secondary);">
+                                        @if ($chunk['page_number'])<span>Page {{ $chunk['page_number'] }}</span>@endif
+                                        @if ($chunk['section'])<span> · {{ $chunk['section'] }}</span>@endif
+                                        @if ($chunk['clause'])<span> · {{ $chunk['clause'] }}</span>@endif
+                                        <span> · RRF {{ $chunk['rrf_score'] }}</span>
+                                    </p>
+                                    <p class="text-xs mt-1 line-clamp-3" style="color: var(--text-secondary);">{{ $chunk['content'] }}</p>
+                                </div>
+                            @empty
+                                <p class="text-xs" style="color: var(--text-secondary);">No relevant references found</p>
+                            @endforelse
+
+                            @if (! $sufficientEvidence)
+                                <x-alert type="warning">The retrieved evidence is insufficient for this query.</x-alert>
+                            @endif
+
+                            <!-- Static assistant placeholder (no AI answer) -->
+                            <div class="flex items-start gap-2">
+                                <div class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center text-[10px] font-semibold flex-shrink-0">AI</div>
+                                <div class="p-3 rounded-2xl rounded-tl-md border text-xs" style="background-color: var(--bg-secondary); border-color: var(--border-primary); color: var(--text-secondary);">
+                                    AI response will be available after Agents implementation.
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
                 </div>
 
                 <!-- Floating / Anchored Prompt Input Area -->

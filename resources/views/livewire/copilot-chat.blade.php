@@ -33,7 +33,7 @@
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-none'"
         style="background-color: var(--bg-secondary); border-color: var(--border-primary);"
     >
-        <div class="flex flex-col h-full w-72 max-w-[85vw]">
+        <div class="flex flex-col flex-1 min-h-0 w-72 max-w-[85vw] overflow-hidden">
             <!-- Brand & Sidebar Toggle -->
             <div class="p-4 flex items-center justify-between border-b" style="border-color: var(--border-primary);">
                 <div class="flex items-center gap-2.5">
@@ -235,8 +235,12 @@
 
             @endif
 
+            @if (Auth::user()->isAdmin())
+                <div class="flex-1 min-h-0"></div>
+            @endif
+
             <!-- Bottom User Profile Card & Theme Toggle -->
-            <div class="absolute bottom-0 left-0 w-full p-3 border-t space-y-2.5" style="border-color: var(--border-primary);">
+            <div class="mt-auto flex-shrink-0 w-full p-3 border-t space-y-2.5" style="border-color: var(--border-primary);">
                 @if (! Auth::user()->isAdmin())
                 <!-- Token Budget Mini Widget -->
                 <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-[#141414] border border-gray-200/80 dark:border-gray-800/80">
